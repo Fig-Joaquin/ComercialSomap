@@ -1,0 +1,175 @@
+###
+- Backup de la base de datos para probar
+src/config/backup-joaquin
+
+
+### contenido del .env
+PORT=3000
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=devj
+DB_PASSWORD=smp8074
+DB_DATABASE=somap
+JWT_SECRET=your_secret_key
+JWT_EXPIRES_IN=1h
+
+###. usuario login gerente
+{
+  "Rut_Persona": "20487654-1",
+  "Contrasenia": "adm123"
+
+  
+}
+
+
+###. Crear persona
+{
+    "Rut_Persona": "14273436-2",
+    "Nombre": "Alejandra",
+    "Primer_apellido": "Segura",
+    "Telefono": "951562834"
+}
+
+###. Crear cliente
+{
+  "persona": {
+    "Rut_Persona": "16183681-8",
+    "Nombre": "Alejandrina",
+    "Primer_apellido": "Figueroa",
+    "Segundo_apellido": "Salas",
+    "Telefono": "942356223"
+  },
+  "cliente": {
+    "Direccion": "El nacional, 252",
+    "Nombre_Local": "El vevedor",
+    "Razon_Social": "Sociedad",
+    "Giro": "Panadería",
+    "ID_Comuna": 35
+  }
+}
+
+
+###. crear transaccion
+{
+  "Fecha": "29-08-2024",
+  "Tipo": "Ingreso",
+  "Monto": 59000,
+  "Descripcion": "inyección de gerente"
+}
+
+###. crear sueldo
+{
+  "Fecha": "30-08-2024",
+  "Tipo": "Egreso",
+  "Monto": 40043,
+  "DescripcionTransaccion": "Sueldo carlos",
+  "Tipo_Sueldo": "mensual",
+  "Descripcion": "Sueldo de agosto 30-08-2024"
+}
+###. crear categoria-gasto
+{
+  "Nombre": "agua"
+}
+
+###. crear gasto
+{
+  "Fecha": "23-08-2024",
+  "Tipo": "Egreso",
+  "Monto": 154000,
+  "Descripcion": "Pago luz agosto",
+  "Nombre_Gasto": "Pago de Luz",
+  "ID_Categoria_Gasto": 1
+}
+
+
+__________________________________ T R I G G E R __________________________________
+
+# ACTUALIZAR EL stock - El trigger calculará las unidades totales y opcionalmente devolverá las cajas derivadas en consultas:
+
+CREATE OR REPLACE FUNCTION actualizar_stock()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Movimiento de ingreso
+  IF (NEW.tipo_movimiento = 'INGRESO') THEN
+    UPDATE productos
+    SET stock_unidades = stock_unidades + NEW.cantidad
+    WHERE id_producto = NEW.id_producto;
+
+  -- Movimiento de egreso
+  ELSIF (NEW.tipo_movimiento = 'EGRESO') THEN
+    UPDATE productos
+    SET stock_unidades = stock_unidades - NEW.cantidad
+    WHERE id_producto = NEW.id_producto;
+
+  -- Movimiento de devolución
+  ELSIF (NEW.tipo_movimiento = 'DEVOLUCION') THEN
+    IF (NEW.es_defectuoso = TRUE) THEN
+      -- Incrementar stock defectuoso
+      UPDATE productos
+      SET stock_defectuoso = COALESCE(stock_defectuoso, 0) + NEW.cantidad
+      WHERE id_producto = NEW.id_producto;
+    ELSE
+      -- Reincorporar al stock disponible
+      UPDATE productos
+      SET stock_unidades = stock_unidades + NEW.cantidad
+      WHERE id_producto = NEW.id_producto;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_actualizar_stock
+AFTER INSERT ON movimientos_stock
+FOR EACH ROW
+EXECUTE FUNCTION actualizar_stock();
+
+
+
+DATOS_PERSONALES
+
+somap=# select * from "Usuarios";
+ ID_Usuario |                         Contrasenia                          | ID_Persona
+------------+--------------------------------------------------------------+------------
+          1 | $2a$10$G5PO8wbVrvY0iQ9JJY4EWeCUu4.XFYZfk8EJuVvrEYBEeV3lPtI5i |          1
+(1 row)
+
+somap=# select * from "Personas";
+ ID_Persona | Rut_Persona |   Nombre    | Primer_apellido | Segundo_apellido |            Email             | Telefono
+------------+-------------+-------------+-----------------+------------------+------------------------------+-----------
+          1 | 20487654-1  | Joaquín     | Sanchez         | Figueroa         | joaquinignacio2000@gmail.com | 956281148
+          2 | 7294870-k   | Alejandrina | Salas           |                  |                              | 956281148
+          3 | 13956281-k  | Maria       | Figueroa        | Salas            |                              | 951562834
+          4 | 13032128-3  | Gonzalo     | Figueroa        | Contreras        |                              | 951348322
+          5 | 21314906-7  | Joaquin     | Perez           | Constenla        |                              | 955838412
+          6 | 20297885-1  | Alexandra   | Marquez         | Grecia           |                              | 942356453
+          7 | 21151897-9  | Diego       | Venegas         | Marret           |                              | 912346523
+          8 | 14273436-2  | Alejandra   | Segura          |                  |                              | 951562834
+         11 | 20823643-1  | Alejandrina | Figueroa        | Salas            |                              | 942356223
+(9 rows)
+
+somap=# select * from "Rol_Usuario";
+ ID_Rol_Usuario | ID_Usuario | ID_Rol
+----------------+------------+--------
+              1 |          1 |      1
+(1 row)
+
+somap=# select * from "Roles";
+ ID_Rol |         Rol
+--------+---------------------
+      1 | gerente
+      2 | jefe_administrativo
+      3 | admin
+(3 rows)
+
+
+!!!
+
+INSERT INTO roles (rol) VALUES ('gerente');
+
+ INSERT INTO personas (rut_persona, nombre, primer_apellido, segundo_apellido, email, telefono) VALUES ('20487654-1', 'Joaquin', 'Sanchez', 'Figueroa', 'joaquinignacio@hotmail.com', '973729244');
+
+ INSERT INTO usuarios (contrasenia, id_persona) VALUES ('$2a$10$G5PO8wbVrvY0iQ9JJY4EWeCUu4.XFYZfk8EJuVvrEYBEeV3lPtI5i', 1);
+
+ INSERT INTO rol_usuario (id_usuario, id_rol) VALUES (1,1);
